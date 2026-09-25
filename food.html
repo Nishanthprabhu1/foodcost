@@ -504,35 +504,128 @@ function renderSales(){document.getElementById('salesTable').innerHTML=state.sal
 function saveSettings(){state.settings.target=+document.getElementById('targetPct').value||25;state.settings.currency=document.getElementById('currency').value;save();renderAll();toast('Settings saved')}
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='costiq-data.json';a.click();URL.revokeObjectURL(a.href)}
 function loadDemo(){
-  state.ingredients=[
-    {id:'chicken',name:'Chicken breast',purchaseQty:1,purchaseUnit:'kg',price:280,baseUnit:'kg',costPerBase:280},
-    {id:'yogurt',name:'Greek yogurt',purchaseQty:1,purchaseUnit:'kg',price:200,baseUnit:'kg',costPerBase:200},
-    {id:'lemon',name:'Lemon juice',purchaseQty:1,purchaseUnit:'litre',price:120,baseUnit:'litre',costPerBase:120},
-    {id:'garam',name:'Garam masala',purchaseQty:100,purchaseUnit:'g',price:60,baseUnit:'kg',costPerBase:600},
-    {id:'cumin',name:'Ground cumin',purchaseQty:100,purchaseUnit:'g',price:50,baseUnit:'kg',costPerBase:500},
-    {id:'paprika',name:'Paprika',purchaseQty:100,purchaseUnit:'g',price:80,baseUnit:'kg',costPerBase:800},
-    {id:'turmeric',name:'Turmeric',purchaseQty:100,purchaseUnit:'g',price:25,baseUnit:'kg',costPerBase:250},
-    {id:'oil',name:'Olive oil',purchaseQty:1,purchaseUnit:'litre',price:900,baseUnit:'litre',costPerBase:900},
-    {id:'onion',name:'Onion',purchaseQty:1,purchaseUnit:'kg',price:50,baseUnit:'kg',costPerBase:50},
-    {id:'garlic',name:'Garlic',purchaseQty:1,purchaseUnit:'kg',price:300,baseUnit:'kg',costPerBase:300},
-    {id:'ginger',name:'Ginger',purchaseQty:1,purchaseUnit:'kg',price:150,baseUnit:'kg',costPerBase:150},
-    {id:'chilli',name:'Chilli powder',purchaseQty:100,purchaseUnit:'g',price:40,baseUnit:'kg',costPerBase:400},
-    {id:'tomato',name:'Tomato puree',purchaseQty:1,purchaseUnit:'litre',price:150,baseUnit:'litre',costPerBase:150}
+  // Create a useful ingredient library first so every demo recipe has real costing.
+  const ingredientSeed = [
+    ["Chicken Breast",1,"kg",280],["Chicken Thigh",1,"kg",260],["Mutton",1,"kg",720],
+    ["Prawns",1,"kg",650],["Salmon",1,"kg",950],["Paneer",1,"kg",360],
+    ["Tofu",1,"kg",220],["Basmati Rice",1,"kg",110],["Sushi Rice",1,"kg",180],
+    ["Noodles",1,"kg",140],["Pasta",1,"kg",160],["Flour",1,"kg",55],
+    ["Bread Crumbs",1,"kg",130],["Potato",1,"kg",45],["Onion",1,"kg",50],
+    ["Tomato",1,"kg",60],["Garlic",1,"kg",300],["Ginger",1,"kg",150],
+    ["Green Chilli",1,"kg",120],["Capsicum",1,"kg",100],["Carrot",1,"kg",70],
+    ["Cabbage",1,"kg",55],["Spinach",1,"kg",80],["Coconut Milk",1,"litre",180],
+    ["Cooking Oil",1,"litre",160],["Olive Oil",1,"litre",900],["Butter",1,"kg",600],
+    ["Cream",1,"litre",280],["Milk",1,"litre",65],["Cheese",1,"kg",520],
+    ["Greek Yogurt",1,"kg",200],["Lemon Juice",1,"litre",120],
+    ["Soy Sauce",1,"litre",180],["Chilli Sauce",1,"litre",170],
+    ["Tomato Puree",1,"litre",150],["Miso Paste",1,"kg",650],
+    ["Garam Masala",100,"g",60],["Turmeric",100,"g",25],
+    ["Cumin",100,"g",50],["Chilli Powder",100,"g",40],
+    ["Black Pepper",100,"g",90],["Paprika",100,"g",80],
+    ["Oregano",100,"g",120],["Basil",100,"g",140],
+    ["Coriander",1,"kg",180],["Sesame Seeds",1,"kg",220],
+    ["Vinegar",1,"litre",100],["Salt",1,"kg",25],
+    ["Sugar",1,"kg",50],["Egg",30,"piece",210],["Yogurt",1,"kg",200],["Corn",1,"kg",100],["Bread",1,"piece",8],["Mayonnaise",1,"kg",180]
   ];
-  state.recipes=[{id:'tikka',name:'Chicken Tikka',sell:450,yieldQty:1,cat:'Main Course',items:[
-    {ingredientId:'chicken',qty:400,unit:'g'},{ingredientId:'yogurt',qty:100,unit:'g'},{ingredientId:'lemon',qty:10,unit:'ml'},
-    {ingredientId:'garam',qty:5,unit:'g'},{ingredientId:'cumin',qty:2,unit:'g'},{ingredientId:'paprika',qty:1,unit:'g'},
-    {ingredientId:'turmeric',qty:.75,unit:'g'},{ingredientId:'oil',qty:15,unit:'ml'},{ingredientId:'onion',qty:100,unit:'g'},
-    {ingredientId:'garlic',qty:9,unit:'g'},{ingredientId:'ginger',qty:6,unit:'g'},{ingredientId:'chilli',qty:2.5,unit:'g'},
-    {ingredientId:'tomato',qty:240,unit:'ml'}]},
-    {id:'ramen',name:'Miso Ramen',sell:380,yieldQty:1,cat:'Asian',items:[{ingredientId:'onion',qty:80,unit:'g'},{ingredientId:'garlic',qty:5,unit:'g'},{ingredientId:'oil',qty:10,unit:'ml'}]}
+
+  db.ingredients = ingredientSeed.map((x,idx)=>{
+    const [name,qty,unit,price]=x;
+    const u=units[unit], baseQty=qty*u.factor;
+    return {id:"demo-ing-"+idx,name,qty,unit,price,base:u.base,cost:price/baseQty};
+  });
+
+  const I = name => {
+    const x=db.ingredients.find(i=>i.name===name);
+    return x ? x.id : "";
+  };
+
+  // Helper: ingredient name, quantity, unit
+  const R = (name, qty, unit) => ({ingredientId:I(name),qty,unit});
+
+  const recipes = [
+    ["Chicken Tikka",450,"Main Course",[R("Chicken Breast",400,"g"),R("Greek Yogurt",100,"g"),R("Lemon Juice",10,"ml"),R("Garam Masala",5,"g"),R("Cumin",2,"g"),R("Paprika",1,"g"),R("Cooking Oil",15,"ml")]],
+    ["Butter Chicken",480,"Main Course",[R("Chicken Breast",300,"g"),R("Tomato Puree",180,"ml"),R("Butter",30,"g"),R("Cream",60,"ml"),R("Garlic",10,"g"),R("Garam Masala",5,"g")]],
+    ["Chicken Biryani",420,"Rice & Biryani",[R("Chicken Thigh",250,"g"),R("Basmati Rice",180,"g"),R("Onion",100,"g"),R("Yogurt",50,"g"),R("Garam Masala",4,"g"),R("Cooking Oil",20,"ml")]],
+    ["Chicken Fried Rice",350,"Rice & Noodles",[R("Chicken Breast",120,"g"),R("Basmati Rice",180,"g"),R("Egg",1,"piece"),R("Carrot",30,"g"),R("Cabbage",30,"g"),R("Soy Sauce",15,"ml")]],
+    ["Chicken Noodles",360,"Rice & Noodles",[R("Chicken Breast",120,"g"),R("Noodles",180,"g"),R("Carrot",30,"g"),R("Cabbage",40,"g"),R("Soy Sauce",15,"ml"),R("Cooking Oil",15,"ml")]],
+    ["Chicken 65",380,"Starters",[R("Chicken Thigh",250,"g"),R("Flour",50,"g"),R("Bread Crumbs",30,"g"),R("Chilli Powder",4,"g"),R("Cooking Oil",40,"ml")]],
+    ["Chicken Manchurian",390,"Chinese",[R("Chicken Breast",220,"g"),R("Flour",40,"g"),R("Capsicum",50,"g"),R("Soy Sauce",20,"ml"),R("Chilli Sauce",15,"ml")]],
+    ["Chicken Teriyaki",450,"Asian",[R("Chicken Breast",250,"g"),R("Soy Sauce",25,"ml"),R("Sugar",10,"g"),R("Sesame Seeds",5,"g"),R("Cooking Oil",10,"ml")]],
+    ["Chicken Ramen",420,"Japanese",[R("Chicken Breast",120,"g"),R("Noodles",150,"g"),R("Miso Paste",25,"g"),R("Egg",1,"piece"),R("Green Chilli",5,"g")]],
+    ["Chicken Katsu",430,"Japanese",[R("Chicken Breast",220,"g"),R("Flour",40,"g"),R("Bread Crumbs",60,"g"),R("Egg",1,"piece"),R("Cooking Oil",35,"ml")]],
+
+    ["Mutton Rogan Josh",620,"Main Course",[R("Mutton",250,"g"),R("Onion",100,"g"),R("Tomato",80,"g"),R("Yogurt",60,"g"),R("Garam Masala",5,"g"),R("Cooking Oil",20,"ml")]],
+    ["Mutton Biryani",650,"Rice & Biryani",[R("Mutton",250,"g"),R("Basmati Rice",180,"g"),R("Onion",100,"g"),R("Yogurt",50,"g"),R("Garam Masala",5,"g"),R("Cooking Oil",25,"ml")]],
+    ["Mutton Pepper Fry",600,"Starters",[R("Mutton",250,"g"),R("Onion",100,"g"),R("Black Pepper",5,"g"),R("Ginger",10,"g"),R("Garlic",10,"g"),R("Cooking Oil",20,"ml")]],
+    ["Prawn Masala",520,"Seafood",[R("Prawns",220,"g"),R("Onion",80,"g"),R("Tomato",80,"g"),R("Coconut Milk",80,"ml"),R("Chilli Powder",4,"g"),R("Cooking Oil",15,"ml")]],
+    ["Prawn Fried Rice",480,"Seafood",[R("Prawns",160,"g"),R("Basmati Rice",180,"g"),R("Egg",1,"piece"),R("Carrot",30,"g"),R("Soy Sauce",15,"ml")]],
+    ["Garlic Butter Prawns",550,"Seafood",[R("Prawns",220,"g"),R("Butter",35,"g"),R("Garlic",15,"g"),R("Lemon Juice",10,"ml"),R("Olive Oil",5,"ml")]],
+    ["Salmon Teriyaki",720,"Seafood",[R("Salmon",220,"g"),R("Soy Sauce",25,"ml"),R("Sugar",10,"g"),R("Sesame Seeds",5,"g"),R("Olive Oil",10,"ml")]],
+    ["Salmon Sushi Roll",580,"Sushi",[R("Salmon",100,"g"),R("Sushi Rice",130,"g"),R("Sesame Seeds",5,"g"),R("Soy Sauce",15,"ml")]],
+    ["Prawn Tempura",520,"Japanese",[R("Prawns",180,"g"),R("Flour",80,"g"),R("Cooking Oil",50,"ml"),R("Soy Sauce",15,"ml")]],
+    ["Fish & Chips",490,"Seafood",[R("Salmon",160,"g"),R("Flour",60,"g"),R("Potato",180,"g"),R("Cooking Oil",45,"ml")]],
+
+    ["Paneer Tikka",380,"Vegetarian",[R("Paneer",220,"g"),R("Greek Yogurt",80,"g"),R("Capsicum",50,"g"),R("Onion",60,"g"),R("Garam Masala",4,"g"),R("Cooking Oil",15,"ml")]],
+    ["Paneer Butter Masala",390,"Vegetarian",[R("Paneer",220,"g"),R("Tomato Puree",160,"ml"),R("Butter",25,"g"),R("Cream",50,"ml"),R("Garam Masala",4,"g")]],
+    ["Palak Paneer",370,"Vegetarian",[R("Paneer",180,"g"),R("Spinach",180,"g"),R("Cream",30,"ml"),R("Garlic",10,"g"),R("Cooking Oil",15,"ml")]],
+    ["Paneer Biryani",400,"Rice & Biryani",[R("Paneer",180,"g"),R("Basmati Rice",180,"g"),R("Onion",80,"g"),R("Yogurt",50,"g"),R("Garam Masala",4,"g")]],
+    ["Chilli Paneer",360,"Chinese",[R("Paneer",180,"g"),R("Capsicum",70,"g"),R("Onion",60,"g"),R("Soy Sauce",15,"ml"),R("Chilli Sauce",15,"ml")]],
+    ["Tofu Teriyaki",340,"Asian",[R("Tofu",220,"g"),R("Soy Sauce",25,"ml"),R("Sugar",10,"g"),R("Sesame Seeds",5,"g"),R("Cooking Oil",10,"ml")]],
+    ["Tofu Stir Fry",320,"Asian",[R("Tofu",200,"g"),R("Capsicum",50,"g"),R("Carrot",40,"g"),R("Cabbage",50,"g"),R("Soy Sauce",15,"ml")]],
+    ["Vegetable Fried Rice",290,"Rice & Noodles",[R("Basmati Rice",180,"g"),R("Carrot",40,"g"),R("Cabbage",50,"g"),R("Capsicum",40,"g"),R("Soy Sauce",15,"ml"),R("Cooking Oil",15,"ml")]],
+    ["Vegetable Noodles",300,"Rice & Noodles",[R("Noodles",180,"g"),R("Carrot",40,"g"),R("Cabbage",50,"g"),R("Capsicum",40,"g"),R("Soy Sauce",15,"ml")]],
+    ["Veg Manchurian",320,"Chinese",[R("Cabbage",100,"g"),R("Carrot",50,"g"),R("Flour",50,"g"),R("Soy Sauce",20,"ml"),R("Chilli Sauce",15,"ml"),R("Cooking Oil",30,"ml")]],
+
+    ["Margherita Pasta",340,"Italian",[R("Pasta",180,"g"),R("Tomato Puree",150,"ml"),R("Cheese",70,"g"),R("Olive Oil",10,"ml"),R("Basil",2,"g")]],
+    ["Creamy Alfredo Pasta",390,"Italian",[R("Pasta",180,"g"),R("Cream",100,"ml"),R("Cheese",70,"g"),R("Butter",20,"g"),R("Garlic",8,"g")]],
+    ["Arrabbiata Pasta",330,"Italian",[R("Pasta",180,"g"),R("Tomato Puree",160,"ml"),R("Garlic",10,"g"),R("Chilli Powder",3,"g"),R("Olive Oil",10,"ml")]],
+    ["Chicken Alfredo",460,"Italian",[R("Pasta",170,"g"),R("Chicken Breast",130,"g"),R("Cream",100,"ml"),R("Cheese",60,"g"),R("Butter",15,"g")]],
+    ["Chicken Pizza",450,"Pizza",[R("Flour",180,"g"),R("Chicken Breast",100,"g"),R("Cheese",100,"g"),R("Tomato Puree",80,"ml"),R("Olive Oil",10,"ml")]],
+    ["Margherita Pizza",380,"Pizza",[R("Flour",180,"g"),R("Cheese",100,"g"),R("Tomato Puree",80,"ml"),R("Olive Oil",10,"ml"),R("Basil",2,"g")]],
+    ["Four Cheese Pizza",520,"Pizza",[R("Flour",180,"g"),R("Cheese",150,"g"),R("Butter",10,"g"),R("Olive Oil",8,"ml")]],
+    ["Garlic Bread",220,"Bakery",[R("Flour",120,"g"),R("Butter",30,"g"),R("Garlic",12,"g"),R("Cheese",30,"g")]],
+    ["Cheese Sandwich",260,"Snacks",[R("Bread",4,"piece"),R("Cheese",60,"g"),R("Butter",15,"g"),R("Tomato",40,"g")]],
+    ["Chicken Sandwich",330,"Snacks",[R("Bread",4,"piece"),R("Chicken Breast",100,"g"),R("Cheese",40,"g"),R("Mayonnaise",30,"g")]],
+
+    ["French Fries",220,"Sides",[R("Potato",250,"g"),R("Cooking Oil",50,"ml"),R("Salt",3,"g")]],
+    ["Loaded Cheese Fries",290,"Sides",[R("Potato",250,"g"),R("Cheese",70,"g"),R("Cooking Oil",50,"ml")]],
+    ["Onion Rings",240,"Sides",[R("Onion",180,"g"),R("Flour",70,"g"),R("Bread Crumbs",40,"g"),R("Cooking Oil",45,"ml")]],
+    ["Creamy Tomato Soup",220,"Soups",[R("Tomato",250,"g"),R("Cream",40,"ml"),R("Butter",15,"g"),R("Garlic",6,"g")]],
+    ["Sweet Corn Soup",210,"Soups",[R("Corn",180,"g"),R("Carrot",30,"g"),R("Cabbage",30,"g"),R("Cream",20,"ml")]],
+    ["Caesar Salad",320,"Salads",[R("Cabbage",120,"g"),R("Cheese",30,"g"),R("Chicken Breast",100,"g"),R("Olive Oil",10,"ml")]],
+    ["Greek Salad",300,"Salads",[R("Tomato",100,"g"),R("Cucumber",100,"g"),R("Cheese",50,"g"),R("Olive Oil",10,"ml")]],
+    ["Paneer Salad",330,"Salads",[R("Paneer",120,"g"),R("Cabbage",80,"g"),R("Carrot",40,"g"),R("Olive Oil",10,"ml")]],
+    ["Chocolate Pancakes",280,"Dessert",[R("Flour",120,"g"),R("Milk",120,"ml"),R("Egg",1,"piece"),R("Sugar",20,"g"),R("Butter",15,"g")]],
+    ["Creamy Garlic Chicken",470,"Main Course",[R("Chicken Breast",250,"g"),R("Cream",100,"ml"),R("Butter",20,"g"),R("Garlic",15,"g"),R("Cheese",30,"g")]]
   ];
-  const today=new Date().toISOString().slice(0,10);
-  state.sales=[{date:today,dish:'Chicken Tikka',quantity:10,revenue:4500},{date:today,dish:'Miso Ramen',quantity:8,revenue:3040}];
-  save();renderAll();toast('Demo data loaded');
+
+  // The demo intentionally contains exactly 50 dishes.
+  db.recipes = recipes.slice(0,50).map((x,idx)=>({
+    id:"demo-recipe-"+idx,
+    name:x[0],
+    sell:x[1],
+    yieldQty:1,
+    cat:x[2],
+    items:x[3]
+  }));
+
+  // Add today's demo sales so the dashboard immediately shows calculations.
+  const demoSales = db.recipes.map((r,idx)=>({
+    date:new Date().toISOString().slice(0,10),
+    dish:r.name,
+    quantity: idx < 10 ? 8 + (idx % 7) : 2 + (idx % 6),
+    revenue: (idx < 10 ? 8 + (idx % 7) : 2 + (idx % 6)) * r.sell
+  }));
+  db.sales = demoSales;
+  db.target = 30;
+  db.editingRecipe = null;
+
+  save();
+  renderAll();
+  newRecipe();
+  notify("50 demo recipes loaded ✓");
 }
-function resetAll(){if(confirm('Reset all local dashboard data?')){localStorage.removeItem(KEY);location.reload()}}
-function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
 function renderAll(){
   document.getElementById('todayLabel').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('targetPct').value=state.settings.target;document.getElementById('currency').value=state.settings.currency;
