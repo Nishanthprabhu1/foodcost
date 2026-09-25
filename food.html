@@ -495,7 +495,7 @@ function renderDashboard(){
   }).join('')||`<tr><td colspan="6" class="empty">Import today's sales to calculate food cost.</td></tr>`;
   document.getElementById('ringScore').textContent=score;
   document.getElementById('scoreRing').style.setProperty('--score',score+'%');
-  document.getElementById('scoreMessage').textContent=!salesToday().length?'Waiting for today\\'s sales':pct<=state.settings.target?'Within target food cost':`Above target by ${(pct-state.settings.target).toFixed(1)}%`;
+  document.getElementById('scoreMessage').textContent=!salesToday().length?"Waiting for today's sales":pct<=state.settings.target?'Within target food cost':`Above target by ${(pct-state.settings.target).toFixed(1)}%`;
   document.getElementById('scoreHint').textContent=score>=90?'Excellent range':score>=75?'Watch food cost':'Action required';
   const top=[...c.rows].sort((a,b)=>b.cost-a.cost).slice(0,5);
   document.getElementById('topCostDishes').innerHTML='<b>Largest raw-material costs today</b>'+top.map(x=>`<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(x.dish)}</span><b>${money(x.cost)}</b></div><div class="bar" style="margin-top:5px"><i style="width:${c.cost?Math.min(100,x.cost/c.cost*100):0}%"></i></div></div>`).join('');
