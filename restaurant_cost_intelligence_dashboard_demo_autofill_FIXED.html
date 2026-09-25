@@ -326,6 +326,18 @@ let state={
 const baseUnits={kg:{base:'kg',factor:1},g:{base:'kg',factor:.001},litre:{base:'litre',factor:1},ml:{base:'litre',factor:.001},
 piece:{base:'piece',factor:1},packet:{base:'packet',factor:1},bottle:{base:'bottle',factor:1},dozen:{base:'piece',factor:12}};
 
+// Cost of a single recipe-row: looks up the ingredient's cost-per-base-unit
+// (set when the ingredient was saved) and multiplies by the quantity used,
+// converted into that same base unit. This is what links Ingredients -> Recipe Master.
+function recipeItemCost(ingredientId, qty, unit){
+  const ing=state.ingredients.find(i=>i.id===ingredientId);
+  if(!ing||!qty||!unit) return 0;
+  const u=baseUnits[unit];
+  if(!u||u.base!==ing.baseUnit) return 0; // e.g. picking "piece" for a kg-based ingredient
+  const baseQty=qty*u.factor;
+  return baseQty*ing.costPerBase;
+}
+
 function money(n){return (state.settings.currency||'₹')+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2})}
 function esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
@@ -502,12 +514,17 @@ function renderDashboard(){
   document.getElementById('topCostDishes').innerHTML='<b>Largest raw-material costs today</b>'+top.map(x=>`<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(x.dish)}</span><b>${money(x.cost)}</b></div><div class="bar" style="margin-top:5px"><i style="width:${c.cost?Math.min(100,x.cost/c.cost*100):0}%"></i></div></div>`).join('');
 }
 function renderSales(){document.getElementById('salesTable').innerHTML=state.sales.map(x=>`<tr><td>${x.date}</td><td>${esc(x.dish)}</td><td>${x.quantity}</td><td>${money(x.revenue)}</td></tr>`).join('')||`<tr><td colspan="4" class="empty">No imported sales.</td></tr>`}
+function resetAll(){
+  if(!confirm('This will erase all ingredients, recipes and sales stored in this browser. Continue?'))return;
+  state={ingredients:[],recipes:[],sales:[],settings:{target:25,currency:state.settings.currency||'₹'},editingRecipe:null};
+  save();renderAll();newRecipe();
+  document.querySelector('[data-page="dashboard"]').click();
+  toast('All local data reset');
+}
 function saveSettings(){state.settings.target=+document.getElementById('targetPct').value||25;state.settings.currency=document.getElementById('currency').value;save();renderAll();toast('Settings saved')}
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='costiq-data.json';a.click();URL.revokeObjectURL(a.href)}
 function loadDemo(){
   try{
-    // Demo ingredients: purchase price + purchase unit. These are real editable
-    // Ingredient Master records so the user can see how recipe costing works.
     const seed=[
       ["Chicken Breast",1,"kg",280],["Chicken Thigh",1,"kg",260],["Mutton",1,"kg",720],
       ["Prawns",1,"kg",650],["Salmon",1,"kg",950],["Paneer",1,"kg",360],
@@ -590,8 +607,6 @@ function loadDemo(){
 
     state.recipes=recipes.map((r,i)=>({id:"demo-r-"+i,name:r[0],sell:r[1],yieldQty:1,cat:r[2],items:r[3].filter(x=>x.ingredientId)}));
 
-    // Optional demo sales are included only to make the dashboard visibly work.
-    // They remain a separate sales feed and can be cleared/imported later.
     const d=new Date().toISOString().slice(0,10);
     state.sales=state.recipes.map((r,i)=>{const q=2+(i%7);return {date:d,dish:r.name,quantity:q,revenue:q*r.sell};});
     state.settings.target=25;
@@ -599,8 +614,6 @@ function loadDemo(){
     save();
     renderAll();
 
-    // Open Recipe Master and show the first recipe fully filled in,
-    // including its ingredient quantities and automatic costs.
     document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
     document.querySelector('[data-page="recipes"]').classList.add('active');
     document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
