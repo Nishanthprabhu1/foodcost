@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Restaurant Cost Intelligence Dashboard</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#fff; --ink:#172033; --muted:#697386;
+    --line:#e6eaf0; --accent:#5b5ce2; --accent2:#7c3aed;
+    --good:#16865b; --warn:#c27b00; --bad:#c43d3d;
+    --shadow:0 10px 30px rgba(22,30,50,.07);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink)}
+  button,input,select{font:inherit}
+  button{cursor:pointer}
+  .app{display:flex;min-height:100vh}
+  aside{width:245px;background:#111827;color:#fff;padding:24px 16px;position:sticky;top:0;height:100vh}
+  .brand{font-size:20px;font-weight:800;padding:0 10px 26px}
+  .brand span{color:#9b9cf8}
+  .nav button{width:100%;background:none;border:0;color:#aeb7c8;text-align:left;padding:12px 14px;border-radius:10px;margin:3px 0}
+  .nav button.active,.nav button:hover{background:#20283a;color:#fff}
+  main{flex:1;padding:28px;max-width:1500px;margin:auto;width:100%}
+  .topbar{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:24px}
+  h1{font-size:28px;margin:0 0 5px}
+  .sub{color:var(--muted);font-size:14px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{border:1px solid var(--line);background:#fff;padding:10px 14px;border-radius:9px;color:var(--ink)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{color:var(--bad)}
+  .page{display:none}.page.active{display:block}
+  .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .metric{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:var(--shadow)}
+  .metric .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .metric .value{font-size:27px;font-weight:800;margin-top:8px}
+  .metric .hint{font-size:12px;color:var(--muted);margin-top:5px}
+  .grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-top:16px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:18px;box-shadow:var(--shadow)}
+  .panel h2{font-size:16px;margin:0 0 15px}
+  .table-wrap{overflow:auto}
+  table{width:100%;border-collapse:collapse;min-width:680px}
+  th,td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+  th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  td.num,th.num{text-align:right}
+  .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:700}
+  .good{background:#e8f7f0;color:var(--good)} .warn{background:#fff5dc;color:var(--warn)} .bad{background:#fdeaea;color:var(--bad)}
+  .bar{height:8px;background:#edf0f5;border-radius:20px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:20px}
+  .form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+  input,select{width:100%;padding:10px 11px;border:1px solid #dfe4eb;border-radius:9px;background:#fff;color:var(--ink);outline:none}
+  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,92,226,.10)}
+  .form-actions{display:flex;gap:8px;margin-top:14px}
+  .section-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+  .section-head h2{margin:0}
+  .search{max-width:260px}
+  .empty{text-align:center;padding:35px;color:var(--muted)}
+  .score{display:flex;align-items:center;gap:20px}
+  .ring{width:112px;height:112px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--accent) var(--score),#e9ecf2 0)}
+  .ring:after{content:"";width:82px;height:82px;background:#fff;border-radius:50%;position:absolute}
+  .ring strong{position:relative;z-index:2;font-size:25px}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .notice{background:#f0f1ff;border:1px solid #dcdcff;border-radius:10px;padding:12px;color:#3f418f;font-size:13px;margin-bottom:15px}
+  .right{text-align:right}
+  .muted{color:var(--muted)}
+  .toast{position:fixed;right:20px;bottom:20px;background:#111827;color:#fff;padding:12px 16px;border-radius:10px;display:none;z-index:10}
+  .small{font-size:11px}
+  @media(max-width:1050px){aside{width:210px}.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.form-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:720px){.app{display:block}aside{position:static;width:auto;height:auto;padding:12px}.brand{padding-bottom:10px}.nav{display:flex;overflow:auto}.nav button{white-space:nowrap;width:auto}main{padding:16px}.cards{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}.topbar{align-items:flex-start;flex-direction:column}h1{font-size:23px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">Cost<span>IQ</span></div>
+    <div class="nav">
+      <button class="active" data-page="dashboard">◈ Dashboard</button>
+      <button data-page="ingredients">◉ Ingredients</button>
+      <button data-page="recipes">▦ Recipe Master</button>
+      <button data-page="sales">↗ Sales Feed</button>
+      <button data-page="settings">⚙ Settings</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Restaurant Cost Intelligence</h1>
+        <div class="sub" id="todayLabel"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="loadDemo()">Load Demo</button>
+        <button class="btn" onclick="exportData()">Export Data</button>
+        <button class="btn primary" onclick="document.getElementById('salesFile').click()">Import Today's Sales</button>
+        <input id="salesFile" type="file" accept=".csv,.json" hidden onchange="importSales(this.files[0])">
+      </div>
+    </div>
+
+    <section id="dashboard" class="page active">
+      <div class="notice">
+        <b>Live sales ready:</b> today's sales are intentionally separated from this dashboard.
+        Import a CSV/JSON feed now; later you can replace the feed adapter with your POS/API endpoint without changing the costing engine.
+      </div>
+
+      <div class="cards">
+        <div class="metric"><div class="label">Revenue Today</div><div class="value" id="mRevenue">₹0</div><div class="hint">from sales feed</div></div>
+        <div class="metric"><div class="label">Raw Material Cost</div><div class="value" id="mCost">₹0</div><div class="hint">recipe × quantity sold</div></div>
+        <div class="metric"><div class="label">Food Cost %</div><div class="value" id="mFood">0%</div><div class="hint">target <span id="targetHint">25%</span></div></div>
+        <div class="metric"><div class="label">Health Score</div><div class="value" id="mScore">100</div><div class="hint" id="scoreHint">Excellent range</div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="section-head"><h2>Today's Dish Cost Report</h2><span class="muted small" id="salesStatus">No sales imported</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Dish</th><th class="num">Sold</th><th class="num">Revenue</th><th class="num">Cost / Dish</th><th class="num">Total Cost</th><th class="num">Food %</th></tr></thead>
+            <tbody id="dishReport"></tbody>
+          </table></div>
+        </div>
+
+        <div class="panel">
+          <h2>Cost Health</h2>
+          <div class="score">
+            <div class="ring" id="scoreRing"><strong id="ringScore">100</strong></div>
+            <div>
+              <div id="scoreMessage" style="font-weight:700">Waiting for today's sales</div>
+              <div class="muted small" style="margin-top:5px">Score falls 1 point for every 1% above the target.</div>
+              <div class="legend">
+                <span class="pill good">≤ Target</span>
+                <span class="pill warn">Target + 1–10%</span>
+                <span class="pill bad">Target + 10%+</span>
+              </div>
+            </div>
+          </div>
+          <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+          <div id="topCostDishes"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ingredients" class="page">
+      <div class="panel">
+        <div class="section-head"><h2>Ingredient Cost Master</h2><input class="search" id="ingredientSearch" placeholder="Search ingredient..." oninput="renderIngredients()"></div>
+        <div class="notice">Enter the restaurant's actual purchase price. The system converts it to a base-unit cost automatically.</div>
+        <div class="form-grid">
+          <div><label>Ingredient name</label><input id="ingName" placeholder="Chicken breast"></div>
+          <div><label>Purchase quantity</label><input id="ingQty" type="number" step="0.001" placeholder="1"></div>
+          <div><label>Purchase unit</label><select id="ingUnit"><option>kg</option><option>g</option><option>litre</option><option>ml</option><option>piece</option><option>packet</option><option>bottle</option><option>dozen</option></select></div>
+          <div><label>Purchase price (₹)</label><input id="ingPrice" type="number" step="0.01" placeholder="280"></div>
+        </div>
+        <div class="form-actions"><button class="btn primary" onclick="addIngredient()">Add / Update Ingredient</button><button class="btn" onclick="clearIngredientForm()">Clear</button></div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Ingredient</th><th>Purchase Pack</th><th>Price</th><th>Base Unit</th><th>Cost / Base Unit</th><th></th></tr></thead>
+          <tbody id="ingredientTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="recipes" class="page">
+      <div class="panel">
+        <div class="section-head"><h2>Recipe Master</h2><button class="btn" onclick="newRecipe()">New Recipe</button></div>
+        <div class="form-grid">
+          <div><label>Dish name</label><input id="recipeName" placeholder="Chicken Tikka"></div>
+          <div><label>Selling price (₹)</label><input id="recipeSell" type="number" step="0.01" placeholder="450"></div>
+          <div><label>Recipe yield / portions</label><input id="recipeYield" type="number" step="1" value="1"></div>
+          <div><label>Category</label><input id="recipeCat" placeholder="Main Course"></div>
+        </div>
+        <div style="margin-top:18px">
+          <div class="section-head"><h2 style="font-size:14px">Recipe Ingredients</h2><button class="btn" onclick="addRecipeRow()">+ Add Ingredient</button></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Ingredient</th><th>Quantity</th><th>Unit</th><th class="num">Estimated Cost</th><th></th></tr></thead>
+            <tbody id="recipeRows"></tbody>
+          </table></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn primary" onclick="saveRecipe()">Save Recipe</button>
+          <button class="btn" onclick="newRecipe()">Reset</button>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="section-head"><h2>Saved Recipes</h2><input class="search" id="recipeSearch" placeholder="Search dish..." oninput="renderRecipes()"></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Dish</th><th>Category</th><th>Sell Price</th><th>Recipe Cost</th><th>Food Cost %</th><th>Margin</th><th></th></tr></thead>
+          <tbody id="recipeTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="sales" class="page">
+      <div class="panel">
+        <h2>Sales Feed Contract</h2>
+        <div class="notice">
+          Your other file can send either CSV or JSON. Recommended fields:
+          <b>date, dish, quantity, revenue</b>. The dashboard only consumes sales; it does not modify the sales source.
+        </div>
+        <pre style="background:#111827;color:#d7e1f2;padding:15px;border-radius:10px;overflow:auto;font-size:12px">CSV:
+date,dish,quantity,revenue
+2026-09-25,Chicken Tikka,10,4500
+2026-09-25,Miso Ramen,8,3040
+
+JSON:
+[
+  {"date":"2026-09-25","dish":"Chicken Tikka","quantity":10,"revenue":4500},
+  {"date":"2026-09-25","dish":"Miso Ramen","quantity":8,"revenue":3040}
+]</pre>
+        <div class="form-actions">
+          <button class="btn primary" onclick="document.getElementById('salesFile2').click()">Choose Sales File</button>
+          <input id="salesFile2" type="file" accept=".csv,.json" hidden onchange="importSales(this.files[0])">
+          <button class="btn" onclick="clearSales()">Clear Today's Sales</button>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <h2>Imported Sales</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Date</th><th>Dish</th><th>Qty</th><th>Revenue</th></tr></thead>
+          <tbody id="salesTable"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="settings" class="page">
+      <div class="panel">
+        <h2>Cost Settings</h2>
+        <div class="form-grid">
+          <div><label>Food cost target (%)</label><input id="targetPct" type="number" min="1" max="100" step=".1"></div>
+          <div><label>Currency</label><select id="currency"><option value="₹">₹ INR</option><option value="$">$ USD</option><option value="¥">¥ JPY</option></select></div>
+        </div>
+        <div class="form-actions"><button class="btn primary" onclick="saveSettings()">Save Settings</button></div>
+      </div>
+      <div class="panel" style="margin-top:16px">
+        <h2>Data</h2>
+        <p class="muted">All demo data is stored in this browser using localStorage. Export regularly or connect this UI to your database/API for production use.</p>
+        <button class="btn danger" onclick="resetAll()">Reset All Local Data</button>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY='costiq_v1';
+let state={
+  ingredients:[], recipes:[], sales:[],
+  settings:{target:25,currency:'₹'},
+  editingRecipe:null
+};
+
+const baseUnits={kg:{base:'kg',factor:1},g:{base:'kg',factor:.001},litre:{base:'litre',factor:1},ml:{base:'litre',factor:.001},
+piece:{base:'piece',factor:1},packet:{base:'packet',factor:1},bottle:{base:'bottle',factor:1},dozen:{base:'piece',factor:12}};
+
+function money(n){return (state.settings.currency||'₹')+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:2})}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function load(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x)state={...state,...x}}catch(e){}}
+function toast(t){const x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',1800)}
+
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active')); document.getElementById(b.dataset.page).classList.add('active');
+  const titles={dashboard:'Restaurant Cost Intelligence',ingredients:'Ingredient Cost Master',recipes:'Recipe Master',sales:'Sales Feed',settings:'Settings'};
+  document.getElementById('pageTitle').textContent=titles[b.dataset.page];
+});
+
+function addIngredient(){
+  const name=document.getElementById('ingName').value.trim();
+  const qty=+document.getElementById('ingQty').value, unit=document.getElementById('ingUnit').value, price=+document.getElementById('ingPrice').value;
+  if(!name||qty<=0||price<0)return alert('Enter ingredient, purchase quantity and price.');
+  const u=baseUnits[unit], baseQty=qty*u.factor, costPerBase=price/baseQty;
+  const i=state.ingredients.findIndex(x=>x.name.toLowerCase()===name.toLowerCase());
+  const obj={id:i>=0?state.ingredients[i].id:uid(),name,purchaseQty:qty,purchaseUnit:unit,price,baseUnit:u.base,costPerBase};
+  if(i>=0)state.ingredients[i]=obj; else state.ingredients.push(obj);
+  save(); renderAll(); clearIngredientForm(); toast('Ingredient saved');
+}
+function clearIngredientForm(){['ingName','ingQty','ingPrice'].forEach(id=>document.getElementById(id).value='')}
+function deleteIngredient(id){state.ingredients=state.ingredients.filter(x=>x.id!==id);state.recipes.forEach(r=>r.items=r.items.filter(i=>i.ingredientId!==id));save();renderAll()}
+function renderIngredients(){
+  const q=(document.getElementById('ingredientSearch')?.value||'').toLowerCase();
+  const rows=state.ingredients.filter(x=>x.name.toLowerCase().includes(q)).map(x=>`
+    <tr><td>${esc(x.name)}</td><td>${x.purchaseQty} ${x.purchaseUnit}</td><td>${money(x.price)}</td><td>${x.baseUnit}</td>
+    <td>${money(x.costPerBase)} / ${x.baseUnit}</td><td class="right"><button class="btn danger" onclick="deleteIngredient('${x.id}')">Delete</button></td></tr>`).join('');
+  document.getElementById('ingredientTable').innerHTML=rows||`<tr><td colspan="6" class="empty">No ingredients yet.</td></tr>`;
+}
+
+function addRecipeRow(item={ingredientId:'',qty:1,unit:''}){
+  const tbody=document.getElementById('recipeRows');
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><select class="r-ing" onchange="syncRecipeRow(this)"><option value="">Select ingredient</option>${state.ingredients.map(i=>`<option value="${i.id}" ${i.id===item.ingredientId?'selected':''}>${esc(i.name)}</option>`).join('')}</select></td>
+  <td><input class="r-qty" type="number" step=".001" value="${item.qty||1}" oninput="refreshRecipeCost()"></td>
+  <td><select class="r-unit" onchange="refreshRecipeCost()">${['kg','g','litre','ml','piece','packet','bottle'].map(u=>`<option ${u===(item.unit||'')?'selected':''}>${u}</option>`).join('')}</select></td>
+  <td class="num r-cost">₹0</td><td class="right"><button class="btn danger" onclick="this.closest('tr').remove();refreshRecipeCost()">Remove</button></td>`;
+  tbody.appendChild(tr); refreshRecipeCost();
+}
+function syncRecipeRow(sel){refreshRecipeCost()}
+function recipeItemCost(ingredientId,qty,unit){
+  const ing=state.ingredients.find(x=>x.id===ingredientId); if(!ing)return 0;
+  const u=baseUnits[unit]||baseUnits.g, baseQty=qty*u.factor;
+  if(ing.baseUnit!==u.base)return 0; // prevents kg/litre/piece mismatch
+  return baseQty*ing.costPerBase;
+}
+function refreshRecipeCost(){
+  let total=0;
+  document.querySelectorAll('#recipeRows tr').forEach(tr=>{
+    const c=recipeItemCost(tr.querySelector('.r-ing').value,+tr.querySelector('.r-qty').value,tr.querySelector('.r-unit').value);
+    tr.querySelector('.r-cost').textContent=money(c); total+=c;
+  });
+  return total;
+}
+function newRecipe(){state.editingRecipe=null;document.getElementById('recipeName').value='';document.getElementById('recipeSell').value='';document.getElementById('recipeYield').value=1;document.getElementById('recipeCat').value='';document.getElementById('recipeRows').innerHTML='';addRecipeRow()}
+function saveRecipe(){
+  const name=document.getElementById('recipeName').value.trim(), sell=+document.getElementById('recipeSell').value, yieldQty=+document.getElementById('recipeYield').value||1, cat=document.getElementById('recipeCat').value.trim();
+  if(!name)return alert('Enter a dish name.');
+  const items=[...document.querySelectorAll('#recipeRows tr')].map(tr=>({ingredientId:tr.querySelector('.r-ing').value,qty:+tr.querySelector('.r-qty').value,unit:tr.querySelector('.r-unit').value})).filter(x=>x.ingredientId&&x.qty>0);
+  if(!items.length)return alert('Add at least one ingredient.');
+  const obj={id:state.editingRecipe||uid(),name,sell,yieldQty,cat,items};
+  const i=state.recipes.findIndex(x=>x.id===obj.id); if(i>=0)state.recipes[i]=obj;else state.recipes.push(obj);
+  save();renderAll();newRecipe();toast('Recipe saved');
+}
+function recipeCost(r){return r.items.reduce((s,i)=>s+recipeItemCost(i.ingredientId,i.qty,i.unit),0)/Math.max(1,r.yieldQty)}
+function editRecipe(id){
+  const r=state.recipes.find(x=>x.id===id);if(!r)return; state.editingRecipe=id;
+  document.getElementById('recipeName').value=r.name;document.getElementById('recipeSell').value=r.sell;document.getElementById('recipeYield').value=r.yieldQty;document.getElementById('recipeCat').value=r.cat;
+  document.getElementById('recipeRows').innerHTML='';r.items.forEach(addRecipeRow);
+  document.querySelector('[data-page="recipes"]').click();window.scrollTo({top:0,behavior:'smooth'});
+}
+function deleteRecipe(id){state.recipes=state.recipes.filter(x=>x.id!==id);save();renderAll()}
+function renderRecipes(){
+  const q=(document.getElementById('recipeSearch')?.value||'').toLowerCase();
+  document.getElementById('recipeTable').innerHTML=state.recipes.filter(r=>r.name.toLowerCase().includes(q)).map(r=>{
+    const c=recipeCost(r), pct=r.sell?c/r.sell*100:0, margin=r.sell-c;
+    return `<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.cat||'-')}</td><td>${money(r.sell)}</td><td>${money(c)}</td><td>${pct.toFixed(1)}%</td><td>${money(margin)}</td><td class="right"><button class="btn" onclick="editRecipe('${r.id}')">Edit</button> <button class="btn danger" onclick="deleteRecipe('${r.id}')">Delete</button></td></tr>`
+  }).join('')||`<tr><td colspan="7" class="empty">No recipes yet.</td></tr>`;
+}
+
+function normalizeSales(arr){
+  return arr.map(x=>({
+    date:x.date||x.Date||new Date().toISOString().slice(0,10),
+    dish:String(x.dish||x.Dish||x.item||x.Item||'').trim(),
+    quantity:+(x.quantity??x.qty??x.Qty??x.sold??0),
+    revenue:+(x.revenue??x.Revenue??((+x.quantity||+x.qty||0)*(+x.price||0))??0)
+  })).filter(x=>x.dish&&x.quantity>0);
+}
+async function importSales(file){
+  if(!file)return;
+  const text=await file.text();
+  try{
+    let arr;
+    if(file.name.toLowerCase().endsWith('.json')) arr=JSON.parse(text);
+    else arr=parseCSV(text);
+    state.sales=normalizeSales(Array.isArray(arr)?arr:arr.sales||[]);
+    save();renderAll();toast(`Imported ${state.sales.length} sales rows`);
+  }catch(e){alert('Could not read the sales file. Check the CSV/JSON format.')}
+}
+function parseCSV(t){
+  const lines=t.trim().split(/\r?\n/);if(lines.length<2)return[];
+  const headers=lines[0].split(',').map(x=>x.trim().toLowerCase());
+  return lines.slice(1).map(line=>{
+    const vals=line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)||[];
+    const o={};headers.forEach((h,i)=>o[h]=(vals[i]||'').replace(/^"|"$/g,'').trim());return o;
+  });
+}
+function clearSales(){state.sales=[];save();renderAll();toast('Sales cleared')}
+function salesToday(){const today=new Date().toISOString().slice(0,10);return state.sales.filter(s=>!s.date||s.date===today)}
+function calc(){
+  const map={}; let revenue=0,cost=0;
+  salesToday().forEach(s=>{
+    const r=state.recipes.find(x=>x.name.toLowerCase()===s.dish.toLowerCase());
+    const c=r?recipeCost(r):0, total=c*s.quantity;
+    revenue+=s.revenue;cost+=total;
+    if(!map[s.dish])map[s.dish]={dish:s.dish,qty:0,revenue:0,cost:0};
+    map[s.dish].qty+=s.quantity;map[s.dish].revenue+=s.revenue;map[s.dish].cost+=total;
+  });
+  return {revenue,cost,rows:Object.values(map)};
+}
+function healthScore(foodPct){
+  if(!state.sales.length)return 100;
+  const excess=Math.max(0,foodPct-state.settings.target);
+  return Math.max(0,Math.round(100-excess));
+}
+function renderDashboard(){
+  const c=calc(), pct=c.revenue?c.cost/c.revenue*100:0, score=healthScore(pct);
+  document.getElementById('mRevenue').textContent=money(c.revenue);document.getElementById('mCost').textContent=money(c.cost);document.getElementById('mFood').textContent=pct.toFixed(1)+'%';document.getElementById('mScore').textContent=score;
+  document.getElementById('targetHint').textContent=state.settings.target+'%';
+  document.getElementById('salesStatus').textContent=salesToday().length?`${salesToday().length} rows imported`:'No sales imported';
+  document.getElementById('dishReport').innerHTML=c.rows.map(x=>{
+    const p=x.revenue?x.cost/x.revenue*100:0;const cls=p<=state.settings.target?'good':p<=state.settings.target+10?'warn':'bad';
+    return `<tr><td><b>${esc(x.dish)}</b></td><td class="num">${x.qty}</td><td class="num">${money(x.revenue)}</td><td class="num">${money(x.qty?x.cost/x.qty:0)}</td><td class="num">${money(x.cost)}</td><td class="num"><span class="pill ${cls}">${p.toFixed(1)}%</span></td></tr>`
+  }).join('')||`<tr><td colspan="6" class="empty">Import today's sales to calculate food cost.</td></tr>`;
+  document.getElementById('ringScore').textContent=score;
+  document.getElementById('scoreRing').style.setProperty('--score',score+'%');
+  document.getElementById('scoreMessage').textContent=!salesToday().length?'Waiting for today\\'s sales':pct<=state.settings.target?'Within target food cost':`Above target by ${(pct-state.settings.target).toFixed(1)}%`;
+  document.getElementById('scoreHint').textContent=score>=90?'Excellent range':score>=75?'Watch food cost':'Action required';
+  const top=[...c.rows].sort((a,b)=>b.cost-a.cost).slice(0,5);
+  document.getElementById('topCostDishes').innerHTML='<b>Largest raw-material costs today</b>'+top.map(x=>`<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(x.dish)}</span><b>${money(x.cost)}</b></div><div class="bar" style="margin-top:5px"><i style="width:${c.cost?Math.min(100,x.cost/c.cost*100):0}%"></i></div></div>`).join('');
+}
+function renderSales(){document.getElementById('salesTable').innerHTML=state.sales.map(x=>`<tr><td>${x.date}</td><td>${esc(x.dish)}</td><td>${x.quantity}</td><td>${money(x.revenue)}</td></tr>`).join('')||`<tr><td colspan="4" class="empty">No imported sales.</td></tr>`}
+function saveSettings(){state.settings.target=+document.getElementById('targetPct').value||25;state.settings.currency=document.getElementById('currency').value;save();renderAll();toast('Settings saved')}
+function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='costiq-data.json';a.click();URL.revokeObjectURL(a.href)}
+function loadDemo(){
+  state.ingredients=[
+    {id:'chicken',name:'Chicken breast',purchaseQty:1,purchaseUnit:'kg',price:280,baseUnit:'kg',costPerBase:280},
+    {id:'yogurt',name:'Greek yogurt',purchaseQty:1,purchaseUnit:'kg',price:200,baseUnit:'kg',costPerBase:200},
+    {id:'lemon',name:'Lemon juice',purchaseQty:1,purchaseUnit:'litre',price:120,baseUnit:'litre',costPerBase:120},
+    {id:'garam',name:'Garam masala',purchaseQty:100,purchaseUnit:'g',price:60,baseUnit:'kg',costPerBase:600},
+    {id:'cumin',name:'Ground cumin',purchaseQty:100,purchaseUnit:'g',price:50,baseUnit:'kg',costPerBase:500},
+    {id:'paprika',name:'Paprika',purchaseQty:100,purchaseUnit:'g',price:80,baseUnit:'kg',costPerBase:800},
+    {id:'turmeric',name:'Turmeric',purchaseQty:100,purchaseUnit:'g',price:25,baseUnit:'kg',costPerBase:250},
+    {id:'oil',name:'Olive oil',purchaseQty:1,purchaseUnit:'litre',price:900,baseUnit:'litre',costPerBase:900},
+    {id:'onion',name:'Onion',purchaseQty:1,purchaseUnit:'kg',price:50,baseUnit:'kg',costPerBase:50},
+    {id:'garlic',name:'Garlic',purchaseQty:1,purchaseUnit:'kg',price:300,baseUnit:'kg',costPerBase:300},
+    {id:'ginger',name:'Ginger',purchaseQty:1,purchaseUnit:'kg',price:150,baseUnit:'kg',costPerBase:150},
+    {id:'chilli',name:'Chilli powder',purchaseQty:100,purchaseUnit:'g',price:40,baseUnit:'kg',costPerBase:400},
+    {id:'tomato',name:'Tomato puree',purchaseQty:1,purchaseUnit:'litre',price:150,baseUnit:'litre',costPerBase:150}
+  ];
+  state.recipes=[{id:'tikka',name:'Chicken Tikka',sell:450,yieldQty:1,cat:'Main Course',items:[
+    {ingredientId:'chicken',qty:400,unit:'g'},{ingredientId:'yogurt',qty:100,unit:'g'},{ingredientId:'lemon',qty:10,unit:'ml'},
+    {ingredientId:'garam',qty:5,unit:'g'},{ingredientId:'cumin',qty:2,unit:'g'},{ingredientId:'paprika',qty:1,unit:'g'},
+    {ingredientId:'turmeric',qty:.75,unit:'g'},{ingredientId:'oil',qty:15,unit:'ml'},{ingredientId:'onion',qty:100,unit:'g'},
+    {ingredientId:'garlic',qty:9,unit:'g'},{ingredientId:'ginger',qty:6,unit:'g'},{ingredientId:'chilli',qty:2.5,unit:'g'},
+    {ingredientId:'tomato',qty:240,unit:'ml'}]},
+    {id:'ramen',name:'Miso Ramen',sell:380,yieldQty:1,cat:'Asian',items:[{ingredientId:'onion',qty:80,unit:'g'},{ingredientId:'garlic',qty:5,unit:'g'},{ingredientId:'oil',qty:10,unit:'ml'}]}
+  ];
+  const today=new Date().toISOString().slice(0,10);
+  state.sales=[{date:today,dish:'Chicken Tikka',quantity:10,revenue:4500},{date:today,dish:'Miso Ramen',quantity:8,revenue:3040}];
+  save();renderAll();toast('Demo data loaded');
+}
+function resetAll(){if(confirm('Reset all local dashboard data?')){localStorage.removeItem(KEY);location.reload()}}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function renderAll(){
+  document.getElementById('todayLabel').textContent=new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('targetPct').value=state.settings.target;document.getElementById('currency').value=state.settings.currency;
+  renderIngredients();renderRecipes();renderDashboard();renderSales();
+}
+load();renderAll();if(!state.ingredients.length)newRecipe();
+</script>
+</body>
+</html>
